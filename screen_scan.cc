@@ -56,7 +56,14 @@ int main()
   Mat gomi = imread ("gomi.png");
   cvtColor (gomi,gomi,CV_RGB2GRAY);
 
+  // 高精度時間データ
+  timespec req;
+  req.tv_sec = 0;
+  req.tv_nsec = 100000000;
+  timespec rem;
+
   while (1) {
+    nanosleep (&req,&rem);
     ImageFromDisplay(Pixels, Width, Height, Bpp);
 
     if (Width && Height)
@@ -76,7 +83,6 @@ int main()
         // 一定スコア以下の場合は処理終了
         if ( maxVal < 0.76 )
           {
-            sleep (1);
             continue;
           }
         std::cout << max_pt + Point {nerd.cols/2,nerd.rows/2} << std::endl;
