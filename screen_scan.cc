@@ -36,7 +36,6 @@ int main()
     int Width = 0;
     int Height = 0;
     int Bpp = 0;
-    int reso = 3;
     std::vector<std::uint8_t> Pixels;
 
     cv::Scalar cols[7];
@@ -51,6 +50,8 @@ int main()
     Mat nerd = imread ("nerd.png");
     cvtColor (nerd,nerd,CV_RGB2GRAY);
 
+    Mat gomi = imread ("gomi.png");
+    cvtColor (gomi,gomi,CV_RGB2GRAY);
 
     ImageFromDisplay(Pixels, Width, Height, Bpp);
 
@@ -68,17 +69,24 @@ int main()
         double maxVal;
         cv::minMaxLoc(result, NULL, &maxVal, NULL, &max_pt);
 
-        cvtColor (img,img,CV_GRAY2RGB);
         // 一定スコア以下の場合は処理終了
         if ( maxVal < 0.5 ) return 0;
  
-        std::cout << max_pt << std::endl;
+        std::cout << max_pt + Point {nerd.cols/2,nerd.rows/2} << std::endl;
 
+        matchTemplate(img, gomi, result, CV_TM_CCOEFF_NORMED);
+        cv::Point gomi_max_pt;
+        cv::minMaxLoc(result, NULL, &maxVal, NULL, &gomi_max_pt);
+
+        std::cout << gomi_max_pt + Point {gomi.cols/2,gomi.rows/2} << std::endl;
+#ifdef DEBUG
+        cvtColor (img,img,CV_GRAY2RGB);
         // 探索結果の場所に矩形を描画
         cv::rectangle(img, max_pt,max_pt + Point {nerd.cols,nerd.rows} ,cols[0], 3);
 
+        cv::rectangle(img, gomi_max_pt,gomi_max_pt + Point {gomi.cols,gomi.rows} ,cols[3], 3);
         imshow("Display window", img);
-        
+#endif        
         
 
         waitKey(0);
