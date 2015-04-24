@@ -5,27 +5,29 @@
 #include <vector>
 #include <opencv2/opencv.hpp>
 #include <iostream>
+#include <cstdlib>
+#include <unistd.h>
 
 
 void ImageFromDisplay(std::vector<uint8_t>& Pixels, int& Width, int& Height, int& BitsPerPixel)
 {
-    Display* display = XOpenDisplay(nullptr);
-    Window root = DefaultRootWindow(display);
+  Display* display = XOpenDisplay(nullptr);
+  Window root = DefaultRootWindow(display);
 
-    XWindowAttributes attributes = {0};
-    XGetWindowAttributes(display, root, &attributes);
+  XWindowAttributes attributes = {0};
+  XGetWindowAttributes(display, root, &attributes);
 
-    Width = attributes.width;
-    Height = attributes.height;
+  Width = attributes.width;
+  Height = attributes.height;
 
-    XImage* img = XGetImage(display, root, 0, 0 , Width, Height, AllPlanes, ZPixmap);
-    BitsPerPixel = img->bits_per_pixel;
-    Pixels.resize(Width * Height * 4);
+  XImage* img = XGetImage(display, root, 0, 0 , Width, Height, AllPlanes, ZPixmap);
+  BitsPerPixel = img->bits_per_pixel;
+  Pixels.resize(Width * Height * 4);
 
-    memcpy(&Pixels[0], img->data, Pixels.size());
+  memcpy(&Pixels[0], img->data, Pixels.size());
 
-    XFree(img);
-    XCloseDisplay(display);
+  XFree(img);
+  XCloseDisplay(display);
 }
 
 using namespace cv;
@@ -33,26 +35,28 @@ using namespace cv;
 
 int main()
 {
-    int Width = 0;
-    int Height = 0;
-    int Bpp = 0;
-    std::vector<std::uint8_t> Pixels;
+  sleep (5);
+  int Width = 0;
+  int Height = 0;
+  int Bpp = 0;
+  std::vector<std::uint8_t> Pixels;
 
-    cv::Scalar cols[7];
-    cols[0] = cv::Scalar(0,0,255);
-    cols[1] = cv::Scalar(0,255,255);
-    cols[2] = cv::Scalar(255,0,255);
-    cols[3] = cv::Scalar(255,0,0);
-    cols[4] = cv::Scalar(0,255,0);
-    cols[5] = cv::Scalar(255,255,0);
-    cols[6] = cv::Scalar(255,255,255);
+  cv::Scalar cols[7];
+  cols[0] = cv::Scalar(0,0,255);
+  cols[1] = cv::Scalar(0,255,255);
+  cols[2] = cv::Scalar(255,0,255);
+  cols[3] = cv::Scalar(255,0,0);
+  cols[4] = cv::Scalar(0,255,0);
+  cols[5] = cv::Scalar(255,255,0);
+  cols[6] = cv::Scalar(255,255,255);
 
-    Mat nerd = imread ("nerd.png");
-    cvtColor (nerd,nerd,CV_RGB2GRAY);
+  Mat nerd = imread ("nerd.png");
+  cvtColor (nerd,nerd,CV_RGB2GRAY);
 
-    Mat gomi = imread ("gomi.png");
-    cvtColor (gomi,gomi,CV_RGB2GRAY);
+  Mat gomi = imread ("gomi.png");
+  cvtColor (gomi,gomi,CV_RGB2GRAY);
 
+  while (1) {
     ImageFromDisplay(Pixels, Width, Height, Bpp);
 
     if (Width && Height)
@@ -70,15 +74,27 @@ int main()
         cv::minMaxLoc(result, NULL, &maxVal, NULL, &max_pt);
 
         // 一定スコア以下の場合は処理終了
-        if ( maxVal < 0.5 ) return 0;
- 
+        if ( maxVal < 0.76 )
+          {
+            sleep (1);
+            continue;
+          }
         std::cout << max_pt + Point {nerd.cols/2,nerd.rows/2} << std::endl;
+        const auto centerNerd = max_pt + Point {nerd.cols/2,nerd.rows/2};
 
         matchTemplate(img, gomi, result, CV_TM_CCOEFF_NORMED);
         cv::Point gomi_max_pt;
         cv::minMaxLoc(result, NULL, &maxVal, NULL, &gomi_max_pt);
 
         std::cout << gomi_max_pt + Point {gomi.cols/2,gomi.rows/2} << std::endl;
+        const auto centerGomi = gomi_max_pt + Point {gomi.cols/2,gomi.rows/2};
+        char cmd[100];
+        sprintf (cmd,"xte 'mousemove %d %d'",centerNerd.x,centerNerd.y);
+        system (cmd);
+        system ("xte 'mousedown 1'");
+        sprintf (cmd,"xte 'mousemove %d %d'",centerGomi.x,centerGomi.y);
+        system (cmd);
+        system ("xte 'mouseup 1'");
 #ifdef DEBUG
         cvtColor (img,img,CV_GRAY2RGB);
         // 探索結果の場所に矩形を描画
@@ -86,10 +102,9 @@ int main()
 
         cv::rectangle(img, gomi_max_pt,gomi_max_pt + Point {gomi.cols,gomi.rows} ,cols[3], 3);
         imshow("Display window", img);
-#endif        
-        
-
         waitKey(0);
-    }
-    return 0;
+#endif        
+      }
+  }
+  return 0;
 }
