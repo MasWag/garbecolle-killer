@@ -52,15 +52,17 @@ int main()
 
   Mat nerd = imread ("nerd.png");
   cvtColor (nerd,nerd,CV_RGB2GRAY);
-
+        
   Mat gomi = imread ("gomi.png");
   cvtColor (gomi,gomi,CV_RGB2GRAY);
+
 
   // 高精度時間データ
   timespec req;
   req.tv_sec = 0;
   req.tv_nsec = 100000000;
   timespec rem;
+  Point lastPoint;
 
   while (1) {
     nanosleep (&req,&rem);
@@ -81,12 +83,18 @@ int main()
         cv::minMaxLoc(result, NULL, &maxVal, NULL, &max_pt);
 
         // 一定スコア以下の場合は処理終了
-        if ( maxVal < 0.76 )
+        if ( maxVal < 0.78 )
           {
+            lastPoint = {0,0};
             continue;
           }
-        std::cout << max_pt + Point {nerd.cols/2,nerd.rows/2} << std::endl;
         const auto centerNerd = max_pt + Point {nerd.cols/2,nerd.rows/2};
+        std::cout << centerNerd << std::endl;
+        if (lastPoint != centerNerd)
+          {
+            lastPoint = centerNerd;
+            continue;
+          }
 
         matchTemplate(img, gomi, result, CV_TM_CCOEFF_NORMED);
         cv::Point gomi_max_pt;
