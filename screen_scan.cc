@@ -8,6 +8,41 @@
 #include <cstdlib>
 #include <unistd.h>
 
+cv::Rect box;
+
+void drawBox(cv::Mat *img){
+    cv::rectangle(*img, cv::Point2d(box.x, box.y), cv::Point2d(box.x + box.width, box.y + box.height),cv::Scalar(0xff, 0x00, 0x00));
+}
+
+void callback (int event, int x, int y, int flags, void* param) {
+  cv::Mat* image = static_cast<cv::Mat*>(param);
+  switch (event)
+    {
+    case cv::EVENT_MOUSEMOVE:
+      box.width = x - box.x;
+      box.height = y - box.y;
+      break;
+
+    case cv::EVENT_LBUTTONDOWN:
+      box = cv::Rect(x, y, 0, 0);
+      break;
+
+    case cv::EVENT_LBUTTONUP:
+      if (box.width < 0)
+        {
+          box.x += box.width;
+          box.width *= -1;
+        }
+      if (box.height < 0)
+        {
+          box.y += box.height;
+          box.height *= -1;
+        }
+      drawBox(image);
+      break;
+    }
+}
+
 
 void ImageFromDisplay(std::vector<uint8_t>& Pixels, int& Width, int& Height, int& BitsPerPixel)
 {
@@ -35,7 +70,7 @@ using namespace cv;
 
 int main()
 {
-  sleep (5);
+  //  sleep (5);
   int Width = 0;
   int Height = 0;
   int Bpp = 0;
@@ -64,31 +99,51 @@ int main()
   timespec rem;
   Point lastPoint;
 
+  ImageFromDisplay(Pixels, Width, Height, Bpp);
+  Mat img = Mat(Height, Width, Bpp > 24 ? CV_8UC4 : CV_8UC3, Pixels.data());
+
+  ImageFromDisplay(Pixels, Width, Height, Bpp);
+  
+  // cvtColor (img_roi,img_roi,CV_RGB2GRAY);
+  // threshold(img_roi, img_roi, 0.0, 255.0, CV_THRESH_BINARY | CV_THRESH_OTSU);
+  namedWindow("Display window");
+  cvSetMouseCallback("Display window", callback,&img);
+
+  while ( (waitKey(10) & 0xff) != 'q')
+    {
+      imshow("Display window", img);
+    }
+
+  namedWindow("Display window");
+  destroyWindow ("Display window");
+  printf ("HERE\n");
+  destroyWindow ("Display window");
+
   while (1) {
     nanosleep (&req,&rem);
-    ImageFromDisplay(Pixels, Width, Height, Bpp);
-
+    
     if (Width && Height)
       {
+        ImageFromDisplay(Pixels, Width, Height, Bpp);
         Mat img = Mat(Height, Width, Bpp > 24 ? CV_8UC4 : CV_8UC3, Pixels.data());
-
-        cvtColor (img,img,CV_RGB2GRAY);
+        Mat img_roi = img (box);
+        cvtColor (img_roi,img_roi,CV_RGB2GRAY);
 
         Mat result;
-        matchTemplate(img, nerd, result, CV_TM_CCOEFF_NORMED);
+        matchTemplate(img_roi, nerd, result, CV_TM_CCOEFF_NORMED);
 
         // 最大のスコアの場所を探す
         cv::Point max_pt;
         double maxVal;
         cv::minMaxLoc(result, NULL, &maxVal, NULL, &max_pt);
-
+        imshow("Display window", img_roi);
         // 一定スコア以下の場合は処理終了
         if ( maxVal < 0.78 )
           {
             lastPoint = {0,0};
             continue;
           }
-        const auto centerNerd = max_pt + Point {nerd.cols/2,nerd.rows/2};
+        const auto centerNerd = max_pt + box.tl () + Point {nerd.cols/2,nerd.rows/2};
         std::cout << centerNerd << std::endl;
         if (lastPoint != centerNerd)
           {
@@ -96,12 +151,12 @@ int main()
             continue;
           }
 
-        matchTemplate(img, gomi, result, CV_TM_CCOEFF_NORMED);
+        matchTemplate(img_roi, gomi, result, CV_TM_CCOEFF_NORMED);
         cv::Point gomi_max_pt;
         cv::minMaxLoc(result, NULL, &maxVal, NULL, &gomi_max_pt);
 
-        std::cout << gomi_max_pt + Point {gomi.cols/2,gomi.rows/2} << std::endl;
-        const auto centerGomi = gomi_max_pt + Point {gomi.cols/2,gomi.rows/2};
+        std::cout << gomi_max_pt + box.tl () + Point {gomi.cols/2,gomi.rows/2} << std::endl;
+        const auto centerGomi = gomi_max_pt + box.tl () + Point {gomi.cols/2,gomi.rows/2};
         char cmd[100];
         sprintf (cmd,"xte 'mousemove %d %d'",centerNerd.x,centerNerd.y);
         system (cmd);
@@ -110,13 +165,13 @@ int main()
         system (cmd);
         system ("xte 'mouseup 1'");
 #ifdef DEBUG
-        cvtColor (img,img,CV_GRAY2RGB);
+        cvtColor (img_roi,img_roi,CV_GRAY2RGB);
         // 探索結果の場所に矩形を描画
-        cv::rectangle(img, max_pt,max_pt + Point {nerd.cols,nerd.rows} ,cols[0], 3);
+        cv::rectangle(img_roi, max_pt,max_pt + Point {nerd.cols,nerd.rows} ,cols[0], 3);
 
-        cv::rectangle(img, gomi_max_pt,gomi_max_pt + Point {gomi.cols,gomi.rows} ,cols[3], 3);
-        imshow("Display window", img);
-        waitKey(0);
+        cv::rectangle(img_roi, gomi_max_pt,gomi_max_pt + Point {gomi.cols,gomi.rows} ,cols[3], 3);
+        imshow("Display window", img_roi);
+        waitKey(10);
 #endif        
       }
   }
